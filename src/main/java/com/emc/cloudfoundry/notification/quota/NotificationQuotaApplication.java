@@ -5,25 +5,22 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.text.DecimalFormat;
-import java.util.List;
 
 import org.cloudfoundry.client.lib.CloudCredentials;
 import org.cloudfoundry.client.lib.CloudFoundryClient;
 import org.cloudfoundry.client.lib.HttpProxyConfiguration;
 import org.cloudfoundry.client.lib.RestLogCallback;
 import org.cloudfoundry.client.lib.RestLogEntry;
-import org.cloudfoundry.client.lib.domain.ApplicationStats;
 import org.cloudfoundry.client.lib.domain.CloudApplication;
 import org.cloudfoundry.client.lib.domain.CloudOrganization;
-import org.cloudfoundry.client.lib.domain.CloudQuota;
-import org.cloudfoundry.client.lib.domain.CloudService;
-import org.cloudfoundry.client.lib.domain.CloudServiceOffering;
-import org.cloudfoundry.client.lib.domain.CloudServicePlan;
 import org.cloudfoundry.client.lib.domain.CloudSpace;
-import org.cloudfoundry.client.lib.domain.InstanceStats;
 import org.cloudfoundry.client.lib.tokens.TokensFile;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ApplicationContext;
+import org.springframework.core.env.Environment;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
 import org.springframework.security.oauth2.common.DefaultOAuth2RefreshToken;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
@@ -69,23 +66,56 @@ public class NotificationQuotaApplication {
 
 	@Parameter(names = { "-d", "--debug" }, description = "Enable debug logging of requests and responses")
 	private boolean debug;
+	
+	@Autowired
+	private Environment environment;
+	
+	@Autowired
+	private NotificationService notificationService;
 
 	public static void main(String[] args) {
-		SpringApplication.run(NotificationQuotaApplication.class, args);
-		NotificationQuotaApplication sample = new NotificationQuotaApplication();
-		new JCommander(sample, args);
-		sample.run();
+		ApplicationContext context = SpringApplication.run(NotificationQuotaApplication.class, args);
+		NotificationQuotaApplication application = context.getBean(NotificationQuotaApplication.class);
+		new JCommander(application, args);
+		application.run();
 	}
-
+	
+	@Scheduled(fixedRateString = "${pollingFrequency}")
+	public void checkQuota() {
+		CloudFoundryClient client = getCloudFoundryClient();
+		
+		displayCloudInfo(client);
+		for (CloudOrganization organization : client.getOrganizations()) {
+			CloudOrganization org = client.getOrgByName(organization.getName(), true);
+			int memoryLimit = Long.valueOf(org.getQuota().getMemoryLimit()).intValue();
+			int memoryUsed = Long.valueOf(client.getMemoryUsageForOrg(org.getMeta().getGuid())).intValue();
+			int percentUsed = 100 * memoryUsed / memoryLimit;
+			if (org.getQuota() != null) {
+				out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
+						+ formatMBytes(memoryLimit) + ".");
+			}
+			if (percentUsed >= Integer.valueOf(environment.getProperty("threshold"))) {
+				out("That is " + percentUsed + "% of their quota. Sending notification to user.");
+//				notificationService.sendNotification(from, to, messageBody);
+			}
+		}
+		
+	}
+	
 	private void run() {
 		validateArgs();
 
 		setupDebugLogging();
 
-		CloudCredentials credentials = getCloudCredentials();
-		CloudFoundryClient client = getCloudFoundryClient(credentials);
-
+		CloudFoundryClient client = getCloudFoundryClient();
+		
 		displayCloudInfo(client);
+	}
+
+	private CloudFoundryClient getCloudFoundryClient() {
+		CloudCredentials credentials = getCloudCredentials();
+		
+		return getCloudFoundryClient(credentials);
 	}
 
 	private void setupDebugLogging() {
@@ -175,106 +205,36 @@ public class NotificationQuotaApplication {
 	}
 
 	private void displayCloudInfo(CloudFoundryClient client) {
-		// out("\nInfo:");
-		// out(client.getCloudInfo().getName());
-		// out(client.getCloudInfo().getVersion());
-		// out(client.getCloudInfo().getDescription());
-		//
-		// out("\nUsage:");
-		// out(formatMBytes(client.getCloudInfo().getUsage().getTotalMemory()));
-		// out(formatMBytes(client.getCloudInfo().getLimits().getMaxTotalMemory()));
-		// out(client.getCloudInfo().getLimits().getMaxApps() + " apps");
-		//
-		// out("\nSpaces:");
-		// for (CloudSpace space : client.getSpaces()) {
-		// out(space.getName() + ":" + space.getOrganization().getName());
-		// }
-		//
-		// out("\nOrgs:");
 		int appCount = 0;
 		int appInstanceCount = 0;
 		for (CloudOrganization organization : client.getOrganizations()) {
 			CloudOrganization org = client.getOrgByName(organization.getName(), true);
-			// out(org.getName());
 			int quotaMemoryLimit = Long.valueOf(org.getQuota().getMemoryLimit()).intValue();
 			int memoryUsed = Long.valueOf(client.getMemoryUsageForOrg(org.getMeta().getGuid())).intValue();
 			if (org.getQuota() != null) {
 				out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
 						+ formatMBytes(quotaMemoryLimit) + ".");
-				// out("\tQuota:");
-				// out("\t\t" + org.getQuota().getName());
-				// out("\t\tMemory Limit: " + org.getQuota().getMemoryLimit());
 			}
-			// }
+			int quotaUsed = 0;
 			for (CloudSpace space : client.getSpaces()) {
 				if (space.getOrganization().getName().equals(org.getName())) {
-					// out("\nApplications:");
 					int consumed = 0;
 					for (CloudApplication app : client.getApplications()) {
 						if (app.getSpace().getName().equals(space.getName())) {
-
-							// out(app.getName() + ":");
-							// out("\t" + app.getStaging().getBuildpackUrl());
-							// out("\t" + app.getStaging().getCommand());
-							// if (!app.getServices().isEmpty()) {
-							// out("\tBound Services:");
-							// for (String serviceName : app.getServices()) {
-							// out("\t\t" + serviceName);
-							// }
-							// }
 							int instances = app.getInstances();
 							int memory = app.getMemory();
 							consumed += (instances * memory);
 							appCount++;
 							appInstanceCount = appInstanceCount + instances;
-							// out("\t" + formatMBytes(app.getMemory()));
-							// ApplicationStats stats = client.getApplicationStats(app.getName());
-							// for (InstanceStats instanceStats : stats.getRecords()) {
-							// out("\t" + instanceStats.getUris());
-							// out("\t" + instanceStats.getHost());
-							// out("\t" + instanceStats.getPort());
-							// out("\t" + instanceStats.getDiskQuota());
-							// out("\tMemory: " + formatMBytes(Long.valueOf(instanceStats.getMemQuota()).intValue()));
-							// out("\t" + instanceStats.getFdsQuota());
-							// out("\t" + instanceStats.getUptime());
-							//
-							// InstanceStats.Usage usage = instanceStats.getUsage();
-							// out("\t" + usage);
-							// out("\t" + usage.getDisk());
-							// out("\tMem Usage:" + formatMBytes(usage.getMem()));
-							// out("\t" + usage.getTime().getTime());
-							// }
 						}
 					}
+					quotaUsed = 100 * consumed / quotaMemoryLimit;
 					out("\tSpace " + space.getName() + " is using " + (consumed) + "M memory ("
-							+ (100 * consumed / quotaMemoryLimit) + "%) of org quota");
+							+ quotaUsed + "%) of org quota");
 				}
 			}
 		}
 		out("You are running " + appCount + " apps in all orgs, with a total of " + appInstanceCount + " instances");
-		// out("\nServices:");
-		// for (CloudService service : client.getServices()) {
-		// out(service.getName() + ":");
-		// out("\t" + service.getLabel());
-		// out("\t" + service.getPlan());
-		// }
-		//
-		// out("\nService Offerings:");
-		// for (CloudServiceOffering offering : client.getServiceOfferings()) {
-		// out(offering.getLabel() + ":");
-		// final String s = "\tPlans:";
-		// out(s);
-		// for (CloudServicePlan plan : offering.getCloudServicePlans()) {
-		// out("\t\t" + plan.getName());
-		// }
-		// out("\t" + offering.getDescription());
-		// }
-		//
-		// out("\nQuotas:");
-		// for (CloudQuota quota : client.getQuotas()) {
-		// out("Quota " + quota.getName() + " has a memory limit of " +
-		// formatMBytes(Long.valueOf(quota.getMemoryLimit()).intValue()));
-		// }
 	}
 
 	private URL getTargetURL(String target) {
