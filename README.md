@@ -8,6 +8,6 @@ This application uses a fork of the [cf-java-client](https://github.com/malston/
 
 Example #1
 ```
-mvn clean package; java -jar target/notification-quota-0.0.1-SNAPSHOT.jar -t https://api.$CF_DOMAIN -s $CF_SPACE -u $CF_USER -p $CF_PASSWORD -tc
+mvn clean package; java -jar target/notification-quota-0.0.1-SNAPSHOT.jar -t https://api.$CF_SYSTEM_DOMAIN -s $CF_SPACE -u $CF_USER -p $CF_PASSWORD -ut http://uaa.$CF_SYSTEM_DOMAIN -tc
 ```
 

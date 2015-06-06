@@ -45,6 +45,9 @@ public class NotificationQuotaApplication {
 	@Parameter(names = { "-t", "--target" }, description = "Cloud Foundry target URL", required = true)
 	private String target;
 
+	@Parameter(names = { "-ut", "--uaa" }, description = "UAA target URL", required = true)
+	private String uaaTarget;
+
 	@Parameter(names = { "-s", "--space" }, description = "Cloud Foundry space to target", required = true)
 	private String spaceName;
 
@@ -94,15 +97,7 @@ public class NotificationQuotaApplication {
 	@Scheduled(initialDelay = 2000, fixedRateString = "${pollingFrequency}")
 	public void checkQuota() {
 		CloudFoundryClient client = getCloudFoundryClient();
-		UaaUserOperations uaaUserClient = null;
-		
-		try {
-			uaaUserClient = getUaaUserClient();
-		} catch (MalformedURLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return;
-		}
+		UaaUserOperations uaaUserClient = getUaaUserClient();
 		
 		displayCloudInfo(client);
 		
@@ -133,11 +128,11 @@ public class NotificationQuotaApplication {
 		}
 	}
 	
-	private UaaUserOperations getUaaUserClient() throws MalformedURLException {
-		URL uaaHost = new URL("http://uaa.cf.nono.com");
+	private UaaUserOperations getUaaUserClient() {
+		URL uaaHost = getTargetURL(uaaTarget);
 		CloudCredentials cfCredentials = getCloudCredentials();
 		ResourceOwnerPasswordResourceDetails credentials = new ResourceOwnerPasswordResourceDetails();
-	    credentials.setAccessTokenUri("http://uaa.cf.nono.com/oauth/token");
+	    credentials.setAccessTokenUri(uaaTarget + "/oauth/token");
 	    credentials.setClientAuthenticationScheme(AuthenticationScheme.header);
 	    credentials.setClientId(cfCredentials.getClientId());
 	    credentials.setClientSecret(cfCredentials.getClientSecret());
