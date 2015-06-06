@@ -5,6 +5,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.cloudfoundry.client.lib.CloudCredentials;
 import org.cloudfoundry.client.lib.CloudFoundryClient;
@@ -14,13 +16,22 @@ import org.cloudfoundry.client.lib.RestLogEntry;
 import org.cloudfoundry.client.lib.domain.CloudApplication;
 import org.cloudfoundry.client.lib.domain.CloudOrganization;
 import org.cloudfoundry.client.lib.domain.CloudSpace;
+import org.cloudfoundry.client.lib.domain.CloudUser;
 import org.cloudfoundry.client.lib.tokens.TokensFile;
+import org.cloudfoundry.identity.uaa.api.UaaConnectionFactory;
+import org.cloudfoundry.identity.uaa.api.common.UaaConnection;
+import org.cloudfoundry.identity.uaa.api.common.model.expr.FilterRequest;
+import org.cloudfoundry.identity.uaa.api.common.model.expr.FilterRequestBuilder;
+import org.cloudfoundry.identity.uaa.api.user.UaaUserOperations;
+import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.oauth2.client.token.grant.password.ResourceOwnerPasswordResourceDetails;
+import org.springframework.security.oauth2.common.AuthenticationScheme;
 import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
 import org.springframework.security.oauth2.common.DefaultOAuth2RefreshToken;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
@@ -77,31 +88,66 @@ public class NotificationQuotaApplication {
 		ApplicationContext context = SpringApplication.run(NotificationQuotaApplication.class, args);
 		NotificationQuotaApplication application = context.getBean(NotificationQuotaApplication.class);
 		new JCommander(application, args);
-		application.run();
+//		application.run();
 	}
 	
-	@Scheduled(fixedRateString = "${pollingFrequency}")
+	@Scheduled(initialDelay = 2000, fixedRateString = "${pollingFrequency}")
 	public void checkQuota() {
 		CloudFoundryClient client = getCloudFoundryClient();
+		UaaUserOperations uaaUserClient = null;
 		
-		displayCloudInfo(client);
-		for (CloudOrganization organization : client.getOrganizations()) {
-			CloudOrganization org = client.getOrgByName(organization.getName(), true);
-			int memoryLimit = Long.valueOf(org.getQuota().getMemoryLimit()).intValue();
-			int memoryUsed = Long.valueOf(client.getMemoryUsageForOrg(org.getMeta().getGuid())).intValue();
-			int percentUsed = 100 * memoryUsed / memoryLimit;
-			if (org.getQuota() != null) {
-				out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
-						+ formatMBytes(memoryLimit) + ".");
-			}
-			if (percentUsed >= Integer.valueOf(environment.getProperty("threshold"))) {
-				out("That is " + percentUsed + "% of their quota. Sending notification to user.");
-//				notificationService.sendNotification(from, to, messageBody);
-			}
+		try {
+			uaaUserClient = getUaaUserClient();
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return;
 		}
 		
+		displayCloudInfo(client);
+		
+		for (CloudOrganization organization : client.getOrganizations()) {
+			CloudOrganization org = client.getOrgByName(organization.getName(), true);
+			if (org.getQuota() != null) {
+				int memoryLimit = Long.valueOf(org.getQuota().getMemoryLimit()).intValue();
+				int memoryUsed = Long.valueOf(client.getMemoryUsageForOrg(org.getMeta().getGuid())).intValue();
+				int percentUsed = 100 * memoryUsed / memoryLimit;
+				out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
+						+ formatMBytes(memoryLimit) + ".");
+				if (percentUsed >= Integer.valueOf(environment.getProperty("threshold"))) {
+					out("That is " + percentUsed + "% of their quota.");
+					List<CloudUser> users = client.getOrgManagers(org.getMeta().getGuid());
+					List<String> usernames = new ArrayList<String>();
+					if (users != null) {
+						for (CloudUser user : users) {
+							FilterRequest request = new FilterRequestBuilder().equals("id", user.getMeta().getGuid().toString()).build();
+							ScimUser scimUser = uaaUserClient.getUsers(request).getResources().iterator().next();
+							out("Sending email notification to Org Manager [" + scimUser.getGivenName() + " " + scimUser.getFamilyName() + "] of Org [" + org.getName() + "] with email ["+ scimUser.getPrimaryEmail() + "].");
+						}
+					}
+					if (!usernames.isEmpty() ) {
+						notificationService.sendNotification("malston@pivotal.io", usernames, "Test");
+					}
+				}
+			}
+		}
 	}
 	
+	private UaaUserOperations getUaaUserClient() throws MalformedURLException {
+		URL uaaHost = new URL("http://uaa.cf.nono.com");
+		CloudCredentials cfCredentials = getCloudCredentials();
+		ResourceOwnerPasswordResourceDetails credentials = new ResourceOwnerPasswordResourceDetails();
+	    credentials.setAccessTokenUri("http://uaa.cf.nono.com/oauth/token");
+	    credentials.setClientAuthenticationScheme(AuthenticationScheme.header);
+	    credentials.setClientId(cfCredentials.getClientId());
+	    credentials.setClientSecret(cfCredentials.getClientSecret());
+	    credentials.setUsername(cfCredentials.getEmail());
+	    credentials.setPassword(cfCredentials.getPassword());
+	    UaaConnection connection = UaaConnectionFactory.getConnection(uaaHost, credentials);
+	    UaaUserOperations operations = connection.userOperations();
+	    return operations;
+	}
+
 	private void run() {
 		validateArgs();
 

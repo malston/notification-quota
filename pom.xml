@@ -56,6 +56,11 @@
 			<artifactId>cloudfoundry-client-lib</artifactId>
 			<version>1.1.3.BUILD-SNAPSHOT</version>
 		</dependency>
+        <dependency>
+		    <groupId>org.cloudfoundry</groupId>
+		    <artifactId>uaa-java-client</artifactId>
+		    <version>1.0.1-SNAPSHOT</version>
+        </dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
