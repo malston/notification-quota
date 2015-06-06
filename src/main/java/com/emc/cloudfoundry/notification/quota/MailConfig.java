@@ -9,11 +9,11 @@ import org.springframework.core.env.Environment;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 
+import com.sendgrid.SendGrid;
+
 /**
  * Mail sender configuration for sending emails.
  * Relies on the JavaMail API and Spring's JavaMail support.
- * Used by the Spring Integration "Signup Pipeline" and the "Invite" module.
- * @author Keith Donald
  */
 @Configuration
 public class MailConfig {
@@ -39,6 +39,11 @@ public class MailConfig {
 		properties.put("mail.smtp.starttls.enable", environment.getProperty("mail.smtp.starttls.enable", Boolean.class, false));
 		mailSender.setJavaMailProperties(properties);
 		return mailSender;
+	}
+	
+	@Bean
+	public SendGrid sendGrid() {
+		return new SendGrid(environment.getProperty("mail.username"), environment.getProperty("mail.password"));
 	}
 	
 }

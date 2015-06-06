@@ -112,16 +112,19 @@ public class NotificationQuotaApplication {
 				if (percentUsed >= Integer.valueOf(environment.getProperty("threshold"))) {
 					out("That is " + percentUsed + "% of their quota.");
 					List<CloudUser> users = client.getOrgManagers(org.getMeta().getGuid());
-					List<String> usernames = new ArrayList<String>();
+					List<String> emailTos = new ArrayList<String>();
 					if (users != null) {
 						for (CloudUser user : users) {
 							FilterRequest request = new FilterRequestBuilder().equals("id", user.getMeta().getGuid().toString()).build();
 							ScimUser scimUser = uaaUserClient.getUsers(request).getResources().iterator().next();
 							out("Sending email notification to Org Manager [" + scimUser.getGivenName() + " " + scimUser.getFamilyName() + "] of Org [" + org.getName() + "] with email ["+ scimUser.getPrimaryEmail() + "].");
+							if (scimUser.getPrimaryEmail() != null) {
+								emailTos.add(scimUser.getPrimaryEmail());
+							}
 						}
 					}
-					if (!usernames.isEmpty() ) {
-						notificationService.sendNotification("malston@pivotal.io", usernames, "Test");
+					if (!emailTos.isEmpty() ) {
+						notificationService.sendSendGridNotification("malston@pivotal.io", emailTos, "Test");
 					}
 				}
 			}
