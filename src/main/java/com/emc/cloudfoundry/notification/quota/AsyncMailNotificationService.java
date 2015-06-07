@@ -2,7 +2,9 @@ package com.emc.cloudfoundry.notification.quota;
 
 import java.util.List;
 
+import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.scheduling.annotation.Async;
@@ -25,14 +27,20 @@ public class AsyncMailNotificationService implements NotificationService {
 
 	private final SendGrid sendGrid;
 	
+	private final NotificationRepository notificationRepository;
+
+	private final Integer numberOfHoursBeforeResend;
+	
 	/**
 	 * Creates the AsyncMailNotificationService.
 	 * @param mailSender the object that actually does the mail delivery using the JavaMail API.
 	 */
 	@Autowired
-	public AsyncMailNotificationService(MailSender mailSender, SendGrid sendGrid) {
+	public AsyncMailNotificationService(Environment environment, MailSender mailSender, SendGrid sendGrid, NotificationRepository notificationRepository) {
 		this.mailSender = mailSender;
 		this.sendGrid = sendGrid;
+		this.notificationRepository = notificationRepository;
+		this.numberOfHoursBeforeResend = environment.getProperty("numberOfHoursBeforeResend", Integer.class);
 	}
 	
 	@Override
@@ -41,51 +49,81 @@ public class AsyncMailNotificationService implements NotificationService {
 		textTemplate.add("account", from);
 		ST bodyTemplate = new ST(messageBody);
 		for (String user : to) {
-			bodyTemplate.add("user", user);
-			textTemplate.add("body",  bodyTemplate.render());
-			send(from, user, textTemplate.render());
+			Notification notification = notificationRepository.findByEmail(user);
+			boolean shouldResend = true;
+			if (notification != null) {
+				shouldResend = notification.getLastSent().plusHours(numberOfHoursBeforeResend).isBefore(DateTime.now());
+			} else {
+				notification = new Notification();
+				notification.setEmail(user);
+			}
+			System.out.println("Sending notification to : " + notification.getEmail() + " last sent at " + notification.getLastSent() + " shouldResend: " + shouldResend);
+			if (shouldResend) {
+				bodyTemplate.add("user", user);
+				textTemplate.add("body",  bodyTemplate.render());
+				send(from, user, textTemplate.render(), notification);
+			}
 		}
 	}
 
 	@Override
-	public void sendSendGridNotification(String from, List<String> to, String messageBody) {
-		SendGrid.Email email = new SendGrid.Email();
-		String[] toArr = new String[to.size()];
-		email.setTo(to.toArray(toArr));
-		email.setFrom(from);
-		email.setSubject("PCF org about to exeed quota");
+	public void sendSendGridNotification(String from, List<String> to, String messageBody) throws SendGridException {
 		ST textTemplate = new ST(from);
 		textTemplate.add("account", from);
 		ST bodyTemplate = new ST(messageBody);
 		for (String user : to) {
-			bodyTemplate.add("user", user);
-			textTemplate.add("body",  bodyTemplate.render());
-			email.setText(textTemplate.render());
-			try {
-				sendGrid.send(email);
-			} catch (SendGridException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			Notification notification = notificationRepository.findByEmail(user);
+			boolean shouldResend = true;
+			if (notification != null) {
+				shouldResend = notification.getLastSent().plusHours(numberOfHoursBeforeResend).isBefore(DateTime.now());
+			} else {
+				notification = new Notification();
+				notification.setEmail(user);
+			}
+			System.out.println("Sending notification to : " + notification.getEmail() + " last sent at " + notification.getLastSent() + " shouldResend: " + shouldResend);
+			if (shouldResend) {
+				bodyTemplate.add("user", user);
+				textTemplate.add("body",  bodyTemplate.render());
+				sendGrid(from, user, textTemplate.render(), notification);
 			}
 		}
 	}
 
 	// internal helpers
+
+	@Async
+	@Transactional
+	private void send(String from, String to, String text, Notification notification) {
+		SimpleMailMessage mailMessage = createMailMessage(from, to, text);
+		mailSender.send(mailMessage);
+		notification.setLastSent(DateTime.now());
+		notificationRepository.save(notification);
+	}
 	
 	@Async
 	@Transactional
-	private void send(String from, String to, String text) {
-		SimpleMailMessage mailMessage = createMailMessage(from, to, text);
-		mailSender.send(mailMessage);
+	private void sendGrid(String from, String to, String text, Notification notification) throws SendGridException {
+		SendGrid.Email mailMessage = createSendGridMessage(from, to, text);
+		sendGrid.send(mailMessage);
+		notification.setLastSent(DateTime.now());
+		notificationRepository.save(notification);
 	}
 	
 	private SimpleMailMessage createMailMessage(String from, String to, String text) {
 		SimpleMailMessage mailMessage = new SimpleMailMessage();
 		mailMessage.setFrom(from);
 		mailMessage.setTo(to);
-		mailMessage.setSubject("Pivotal CF Quota Alert");
+		mailMessage.setSubject("PCF org about to exeed quota");
 		mailMessage.setText(text);
 		return mailMessage;
 	}
 	
+	private SendGrid.Email createSendGridMessage(String from, String to, String text) {
+		SendGrid.Email mailMessage = new SendGrid.Email();
+		mailMessage.setFrom(from);
+		mailMessage.setSubject("PCF org about to exeed quota");
+		mailMessage.setTo(new String[] { to });
+		mailMessage.setText(text);
+		return mailMessage;
+	}	
 }

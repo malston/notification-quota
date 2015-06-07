@@ -29,6 +29,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.oauth2.client.token.grant.password.ResourceOwnerPasswordResourceDetails;
 import org.springframework.security.oauth2.common.AuthenticationScheme;
@@ -38,8 +39,10 @@ import org.springframework.security.oauth2.common.OAuth2AccessToken;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import com.sendgrid.SendGridException;
 
 @SpringBootApplication
+@EnableJpaRepositories
 public class NotificationQuotaApplication {
 
 	@Parameter(names = { "-t", "--target" }, description = "Cloud Foundry target URL", required = true)
@@ -124,7 +127,11 @@ public class NotificationQuotaApplication {
 						}
 					}
 					if (!emailTos.isEmpty() ) {
-						notificationService.sendSendGridNotification("malston@pivotal.io", emailTos, "Test");
+						try {
+							notificationService.sendSendGridNotification("malston@pivotal.io", emailTos, "Test");
+						} catch (SendGridException e) {
+							error("Email could not be sent: " + e.getMessage());
+						}
 					}
 				}
 			}
