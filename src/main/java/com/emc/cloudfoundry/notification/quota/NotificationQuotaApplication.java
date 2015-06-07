@@ -131,11 +131,7 @@ public class NotificationQuotaApplication {
 						}
 					}
 					if (!emailTos.isEmpty() ) {
-						try {
-							notificationService.sendSendGridNotification("malston@pivotal.io", emailTos, "Test");
-						} catch (SendGridException e) {
-							error("Email could not be sent: " + e.getMessage());
-						}
+						notificationService.sendNotification("malston@pivotal.io", emailTos, "Test");
 					}
 				}
 			}

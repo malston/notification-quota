@@ -16,7 +16,7 @@ import com.sendgrid.SendGrid;
 import com.sendgrid.SendGridException;
 
 /**
- * A MailInviteService implementation that sends email invites asynchronously in a separate thread.
+ * A NotificationService implementation that sends email notifications asynchronously in a separate thread.
  * Relies on Spring's @Async support enabled by AspectJ for the asynchronous behavior.
  * Uses a http://www.stringtemplate.org/ to generate the notification mail text from a template.
  */
@@ -31,6 +31,8 @@ public class AsyncMailNotificationService implements NotificationService {
 
 	private final Integer numberOfHoursBeforeResend;
 	
+	private final boolean useSendGrid;
+	
 	/**
 	 * Creates the AsyncMailNotificationService.
 	 * @param mailSender the object that actually does the mail delivery using the JavaMail API.
@@ -41,6 +43,7 @@ public class AsyncMailNotificationService implements NotificationService {
 		this.sendGrid = sendGrid;
 		this.notificationRepository = notificationRepository;
 		this.numberOfHoursBeforeResend = environment.getProperty("numberOfHoursBeforeResend", Integer.class);
+		this.useSendGrid = (environment.getProperty("mail.host").equals("")) ? true : false;
 	}
 	
 	@Override
@@ -61,30 +64,14 @@ public class AsyncMailNotificationService implements NotificationService {
 			if (shouldResend) {
 				bodyTemplate.add("user", user);
 				textTemplate.add("body",  bodyTemplate.render());
-				send(from, user, textTemplate.render(), notification);
-			}
-		}
-	}
-
-	@Override
-	public void sendSendGridNotification(String from, List<String> to, String messageBody) throws SendGridException {
-		ST textTemplate = new ST(from);
-		textTemplate.add("account", from);
-		ST bodyTemplate = new ST(messageBody);
-		for (String user : to) {
-			Notification notification = notificationRepository.findByEmail(user);
-			boolean shouldResend = true;
-			if (notification != null) {
-				shouldResend = notification.getLastSent().plusHours(numberOfHoursBeforeResend).isBefore(DateTime.now());
-			} else {
-				notification = new Notification();
-				notification.setEmail(user);
-			}
-			System.out.println("Sending notification to : " + notification.getEmail() + " last sent at " + notification.getLastSent() + " shouldResend: " + shouldResend);
-			if (shouldResend) {
-				bodyTemplate.add("user", user);
-				textTemplate.add("body",  bodyTemplate.render());
-				sendGrid(from, user, textTemplate.render(), notification);
+				if (useSendGrid)
+					try {
+						sendGrid(from, user, textTemplate.render(), notification);
+					} catch (SendGridException e) {
+						throw new NotificationException(e.getMessage(), e.getCause());
+					}
+				else
+					send(from, user, textTemplate.render(), notification);
 			}
 		}
 	}
