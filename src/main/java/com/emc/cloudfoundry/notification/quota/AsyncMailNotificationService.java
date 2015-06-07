@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.stringtemplate.v4.ST;
+import org.stringtemplate.v4.STGroupFile;
 
 import com.sendgrid.SendGrid;
 import com.sendgrid.SendGridException;
@@ -33,6 +34,8 @@ public class AsyncMailNotificationService implements NotificationService {
 	
 	private final boolean useSendGrid;
 	
+	private final String subject;
+	
 	/**
 	 * Creates the AsyncMailNotificationService.
 	 * @param mailSender the object that actually does the mail delivery using the JavaMail API.
@@ -44,13 +47,13 @@ public class AsyncMailNotificationService implements NotificationService {
 		this.notificationRepository = notificationRepository;
 		this.numberOfHoursBeforeResend = environment.getProperty("numberOfHoursBeforeResend", Integer.class);
 		this.useSendGrid = (environment.getProperty("mail.host").equals("")) ? true : false;
+		this.subject = environment.getProperty("mail.subject");
 	}
 	
 	@Override
 	public void sendNotification(String from, List<String> to, String messageBody) {
-		ST textTemplate = new ST(from);
-		textTemplate.add("account", from);
-		ST bodyTemplate = new ST(messageBody);
+		ST textTemplate = new ST(new STGroupFile("notification.stg"), messageBody);
+		textTemplate.add("from", from);
 		for (String user : to) {
 			Notification notification = notificationRepository.findByEmail(user);
 			boolean shouldResend = true;
@@ -60,18 +63,19 @@ public class AsyncMailNotificationService implements NotificationService {
 				notification = new Notification();
 				notification.setEmail(user);
 			}
-			System.out.println("Sending notification to : " + notification.getEmail() + " last sent at " + notification.getLastSent() + " shouldResend: " + shouldResend);
 			if (shouldResend) {
-				bodyTemplate.add("user", user);
-				textTemplate.add("body",  bodyTemplate.render());
+				textTemplate.add("user", user);
+				textTemplate.add("body",  messageBody);
+				String message = textTemplate.render();
+				System.out.println("Sending notification: " + message + " to : " + notification.getEmail() + " last sent at " + notification.getLastSent() + " shouldResend: " + shouldResend);
 				if (useSendGrid)
 					try {
-						sendGrid(from, user, textTemplate.render(), notification);
+						sendGrid(from, user, message, notification);
 					} catch (SendGridException e) {
 						throw new NotificationException(e.getMessage(), e.getCause());
 					}
 				else
-					send(from, user, textTemplate.render(), notification);
+					send(from, user, message, notification);
 			}
 		}
 	}
@@ -100,7 +104,7 @@ public class AsyncMailNotificationService implements NotificationService {
 		SimpleMailMessage mailMessage = new SimpleMailMessage();
 		mailMessage.setFrom(from);
 		mailMessage.setTo(to);
-		mailMessage.setSubject("PCF org about to exeed quota");
+		mailMessage.setSubject(subject);
 		mailMessage.setText(text);
 		return mailMessage;
 	}
@@ -109,7 +113,7 @@ public class AsyncMailNotificationService implements NotificationService {
 		SendGrid.Email mailMessage = new SendGrid.Email();
 		mailMessage.setFrom(from);
 		mailMessage.setTo(new String[] { to });
-		mailMessage.setSubject("PCF org about to exeed quota");
+		mailMessage.setSubject(subject);
 		mailMessage.setText(text);
 		return mailMessage;
 	}	

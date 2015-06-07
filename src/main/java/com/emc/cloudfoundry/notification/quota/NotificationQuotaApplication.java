@@ -40,7 +40,6 @@ import org.springframework.security.oauth2.common.OAuth2AccessToken;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
-import com.sendgrid.SendGridException;
 
 @SpringBootApplication
 @EnableJpaRepositories
@@ -108,6 +107,7 @@ public class NotificationQuotaApplication {
 		
 		displayCloudInfo(client);
 		
+		StringBuffer message = new StringBuffer();
 		for (CloudOrganization organization : client.getOrganizations()) {
 			CloudOrganization org = client.getOrgByName(organization.getName(), true);
 			if (org.getQuota() != null) {
@@ -116,8 +116,11 @@ public class NotificationQuotaApplication {
 				int percentUsed = 100 * memoryUsed / memoryLimit;
 				out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
 						+ formatMBytes(memoryLimit) + ".");
+				message.append("Org ").append(org.getName()).append(" is using ").append(formatMBytes(memoryUsed)).append(" of ")
+						.append(formatMBytes(memoryLimit)).append(".");
 				if (percentUsed >= Integer.valueOf(environment.getProperty("threshold"))) {
 					out("That is " + percentUsed + "% of their quota.");
+					message.append("That is ").append(percentUsed).append("% of their quota.");
 					List<CloudUser> users = client.getOrgManagers(org.getMeta().getGuid());
 					List<String> emailTos = new ArrayList<String>();
 					if (users != null) {
@@ -131,7 +134,7 @@ public class NotificationQuotaApplication {
 						}
 					}
 					if (!emailTos.isEmpty() ) {
-						notificationService.sendNotification("malston@pivotal.io", emailTos, "Test");
+						notificationService.sendNotification("malston@pivotal.io", emailTos, message.toString());
 					}
 				}
 			}
