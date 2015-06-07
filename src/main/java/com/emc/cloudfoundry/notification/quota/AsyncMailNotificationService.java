@@ -121,8 +121,8 @@ public class AsyncMailNotificationService implements NotificationService {
 	private SendGrid.Email createSendGridMessage(String from, String to, String text) {
 		SendGrid.Email mailMessage = new SendGrid.Email();
 		mailMessage.setFrom(from);
-		mailMessage.setSubject("PCF org about to exeed quota");
 		mailMessage.setTo(new String[] { to });
+		mailMessage.setSubject("PCF org about to exeed quota");
 		mailMessage.setText(text);
 		return mailMessage;
 	}	
