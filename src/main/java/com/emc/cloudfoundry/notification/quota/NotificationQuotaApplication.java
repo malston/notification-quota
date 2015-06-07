@@ -10,6 +10,7 @@ import java.util.List;
 
 import org.cloudfoundry.client.lib.CloudCredentials;
 import org.cloudfoundry.client.lib.CloudFoundryClient;
+import org.cloudfoundry.client.lib.CloudFoundryOperations;
 import org.cloudfoundry.client.lib.HttpProxyConfiguration;
 import org.cloudfoundry.client.lib.RestLogCallback;
 import org.cloudfoundry.client.lib.RestLogEntry;
@@ -92,14 +93,17 @@ public class NotificationQuotaApplication {
 
 	public static void main(String[] args) {
 		ApplicationContext context = SpringApplication.run(NotificationQuotaApplication.class, args);
+		
 		NotificationQuotaApplication application = context.getBean(NotificationQuotaApplication.class);
 		new JCommander(application, args);
-//		application.run();
+		
+		application.validateArgs();
+		application.setupDebugLogging();
 	}
 	
 	@Scheduled(initialDelay = 2000, fixedRateString = "${pollingFrequency}")
 	public void checkQuota() {
-		CloudFoundryClient client = getCloudFoundryClient();
+		CloudFoundryOperations client = getCloudFoundryClient();
 		UaaUserOperations uaaUserClient = getUaaUserClient();
 		
 		displayCloudInfo(client);
@@ -138,6 +142,12 @@ public class NotificationQuotaApplication {
 		}
 	}
 	
+	private CloudFoundryOperations getCloudFoundryClient() {
+		CloudCredentials credentials = getCloudCredentials();
+		
+		return getCloudFoundryClient(credentials);
+	}
+	
 	private UaaUserOperations getUaaUserClient() {
 		URL uaaHost = getTargetURL(uaaTarget);
 		CloudCredentials cfCredentials = getCloudCredentials();
@@ -151,22 +161,6 @@ public class NotificationQuotaApplication {
 	    UaaConnection connection = UaaConnectionFactory.getConnection(uaaHost, credentials);
 	    UaaUserOperations operations = connection.userOperations();
 	    return operations;
-	}
-
-	private void run() {
-		validateArgs();
-
-		setupDebugLogging();
-
-		CloudFoundryClient client = getCloudFoundryClient();
-		
-		displayCloudInfo(client);
-	}
-
-	private CloudFoundryClient getCloudFoundryClient() {
-		CloudCredentials credentials = getCloudCredentials();
-		
-		return getCloudFoundryClient(credentials);
 	}
 
 	private void setupDebugLogging() {
@@ -255,7 +249,7 @@ public class NotificationQuotaApplication {
 		return false;
 	}
 
-	private void displayCloudInfo(CloudFoundryClient client) {
+	private void displayCloudInfo(CloudFoundryOperations client) {
 		int appCount = 0;
 		int appInstanceCount = 0;
 		for (CloudOrganization organization : client.getOrganizations()) {
