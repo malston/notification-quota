@@ -90,25 +90,25 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>com.github.malston</groupId>
-            <artifactId>cf-java-client</artifactId>
-            <version>e7ab1e5f64a4e4861460626ba9ba8115e373cc93</version>
+            <groupId>com.github.malston.cf-java-client</groupId>
+            <artifactId>cloudfoundry-client-lib</artifactId>
+            <version>30f446e673bf29ca2f2d9e9e89642d8b3bb47ab3</version>
         </dependency>
         <dependency>
             <groupId>com.github.malston</groupId>
             <artifactId>uaa-java-client</artifactId>
-            <version>56b49ff3d12d151c0955728ba41cb01328e8176a</version>
+            <version>ff09ea6e98c10086e53c5fbd5982597e664f88ca</version>
         </dependency>
 	</dependencies>
 
     <repositories>
         <repository>
-            <id>Spring</id>
-            <url>http://repo.spring.io/libs-release-local</url>
-        </repository>
-        <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
+        </repository>
+        <repository>
+            <id>Spring</id>
+            <url>http://repo.spring.io/libs-release-local</url>
         </repository>
     </repositories>
 
