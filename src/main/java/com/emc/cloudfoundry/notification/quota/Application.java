@@ -28,6 +28,7 @@ import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
@@ -86,29 +87,30 @@ public class Application {
 
 	@Parameter(names = { "-d", "--debug" }, description = "Enable debug logging of requests and responses")
 	private boolean debug;
-	
+
 	@Autowired
 	private Environment environment;
-	
+
 	@Autowired
 	private NotificationService notificationService;
 
 	public static void main(String[] args) {
-		ApplicationContext context = SpringApplication.run(Application.class, args);
-		
+		ApplicationContext context = new SpringApplicationBuilder(Application.class)
+				.initializers(new WebApplicationInitializer()).application().run(args);
+
 		Application application = context.getBean(Application.class);
 		new JCommander(application, args);
-		
+
 		application.validateArgs();
 		application.setupDebugLogging();
 	}
-	
+
 	@Scheduled(initialDelay = 2000, fixedRateString = "${pollingFrequency}")
 	public void checkQuota() {
 		CloudFoundryOperations client = getCloudFoundryClient();
 		UaaUserOperations uaaUserClient = getUaaUserClient();
-		
-//		displayCloudInfo(client);
+
+		// displayCloudInfo(client);
 
 		STGroup g = new STRawGroupDir("templates");
 		ST notificationTemplate = g.getInstanceOf("notification");
@@ -120,14 +122,11 @@ public class Application {
 				int memoryLimit = Long.valueOf(org.getQuota().getMemoryLimit()).intValue();
 				int memoryUsed = Long.valueOf(client.getMemoryUsageForOrg(org.getMeta().getGuid())).intValue();
 				int percentUsed = 100 * memoryUsed / memoryLimit;
-				out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
-						+ formatMBytes(memoryLimit) + ".");
-//				message.append("Org ").append(org.getName()).append(" is using ").append(formatMBytes(memoryUsed)).append(" of ")
-//						.append(formatMBytes(memoryLimit)).append(".");
+				// out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
+				// + formatMBytes(memoryLimit) + ".");
 				int quotaMemoryLimit = memoryLimit;
 				if (percentUsed >= Integer.valueOf(environment.getProperty("threshold"))) {
-//					out("That is " + percentUsed + "% of their quota.");
-//					message.append("That is ").append(percentUsed).append("% of their quota.");
+					// out("That is " + percentUsed + "% of their quota.");
 					notificationTemplate.add("orgName", org.getName());
 					notificationTemplate.add("memoryUsed", formatMBytes(memoryUsed));
 					notificationTemplate.add("quotaMemoryLimit", formatMBytes(memoryLimit));
@@ -136,9 +135,12 @@ public class Application {
 					List<String> emailTos = new ArrayList<String>();
 					if (users != null) {
 						for (CloudUser user : users) {
-							FilterRequest request = new FilterRequestBuilder().equals("id", user.getMeta().getGuid().toString()).build();
+							FilterRequest request = new FilterRequestBuilder().equals("id",
+									user.getMeta().getGuid().toString()).build();
 							ScimUser scimUser = uaaUserClient.getUsers(request).getResources().iterator().next();
-//							out("Sending email notification to Org Manager [" + scimUser.getGivenName() + " " + scimUser.getFamilyName() + "] of Org [" + org.getName() + "] with email ["+ scimUser.getPrimaryEmail() + "].");
+							// out("Sending email notification to Org Manager [" + scimUser.getGivenName() + " " +
+							// scimUser.getFamilyName() + "] of Org [" + org.getName() + "] with email ["+
+							// scimUser.getPrimaryEmail() + "].");
 							notificationTemplate.add("givenName", scimUser.getGivenName());
 							if (scimUser.getPrimaryEmail() != null) {
 								emailTos.add(scimUser.getPrimaryEmail());
@@ -147,7 +149,7 @@ public class Application {
 					}
 					ST spaceMessageTemplate = createSpaceUsageMessage(client, org, quotaMemoryLimit);
 					notificationTemplate.add("spaceQuotaBody", spaceMessageTemplate.render());
-					if (!emailTos.isEmpty() ) {
+					if (!emailTos.isEmpty()) {
 						notificationService.sendNotification("pcfops@emc.com", emailTos, notificationTemplate.render());
 					}
 				}
@@ -157,23 +159,23 @@ public class Application {
 
 	private CloudFoundryOperations getCloudFoundryClient() {
 		CloudCredentials credentials = getCloudCredentials();
-		
+
 		return getCloudFoundryClient(credentials);
 	}
-	
+
 	private UaaUserOperations getUaaUserClient() {
 		URL uaaHost = getTargetURL(uaaTarget);
 		CloudCredentials cfCredentials = getCloudCredentials();
 		ResourceOwnerPasswordResourceDetails credentials = new ResourceOwnerPasswordResourceDetails();
-	    credentials.setAccessTokenUri(uaaTarget + "/oauth/token");
-	    credentials.setClientAuthenticationScheme(AuthenticationScheme.header);
-	    credentials.setClientId(cfCredentials.getClientId());
-	    credentials.setClientSecret(cfCredentials.getClientSecret());
-	    credentials.setUsername(cfCredentials.getEmail());
-	    credentials.setPassword(cfCredentials.getPassword());
-	    UaaConnection connection = UaaConnectionFactory.getConnection(uaaHost, credentials);
-	    UaaUserOperations operations = connection.userOperations();
-	    return operations;
+		credentials.setAccessTokenUri(uaaTarget + "/oauth/token");
+		credentials.setClientAuthenticationScheme(AuthenticationScheme.header);
+		credentials.setClientId(cfCredentials.getClientId());
+		credentials.setClientSecret(cfCredentials.getClientSecret());
+		credentials.setUsername(cfCredentials.getEmail());
+		credentials.setPassword(cfCredentials.getPassword());
+		UaaConnection connection = UaaConnectionFactory.getConnection(uaaHost, credentials);
+		UaaUserOperations operations = connection.userOperations();
+		return operations;
 	}
 
 	private void setupDebugLogging() {
@@ -261,7 +263,7 @@ public class Application {
 		}
 		return false;
 	}
-	
+
 	private ST createSpaceUsageMessage(CloudFoundryOperations client, CloudOrganization org, int quotaMemoryLimit) {
 		int appCount = 0;
 		int appInstanceCount = 0;
