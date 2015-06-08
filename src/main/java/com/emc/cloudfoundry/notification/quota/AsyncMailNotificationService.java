@@ -81,7 +81,7 @@ public class AsyncMailNotificationService implements NotificationService {
 		SimpleMailMessage mailMessage = createMailMessage(from, to, text);
 		mailSender.send(mailMessage);
 		notification.setLastSent(DateTime.now());
-		notification.setMessage(text);
+		notification.setMessage(text.getBytes());
 		notificationRepository.save(notification);
 	}
 	
@@ -91,7 +91,7 @@ public class AsyncMailNotificationService implements NotificationService {
 		SendGrid.Email mailMessage = createSendGridMessage(from, to, text);
 		sendGrid.send(mailMessage);
 		notification.setLastSent(DateTime.now());
-		notification.setMessage(text);
+		notification.setMessage(text.getBytes());
 		notificationRepository.save(notification);
 	}
 	

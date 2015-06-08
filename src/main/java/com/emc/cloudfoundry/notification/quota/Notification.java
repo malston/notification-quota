@@ -3,6 +3,7 @@ package com.emc.cloudfoundry.notification.quota;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
+import javax.persistence.Lob;
 import javax.persistence.Table;
 
 import org.hibernate.annotations.Type;
@@ -15,8 +16,9 @@ public class Notification {
 	@Id
 	private String email;
 	
-    @Column(nullable = false)
-	private String message;
+	@Lob
+	@Column(nullable = false)
+	private byte[] message;
 	
 	@Type(type = "org.jadira.usertype.dateandtime.joda.PersistentDateTime")
 	@Column(nullable = false)
@@ -30,11 +32,11 @@ public class Notification {
 		this.email = email;
 	}
 
-	public String getMessage() {
+	public byte[] getMessage() {
 		return message;
 	}
 
-	public void setMessage(String message) {
+	public void setMessage(byte[] message) {
 		this.message = message;
 	}
 	
