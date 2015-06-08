@@ -1,5 +1,6 @@
 package com.emc.cloudfoundry.notification.quota;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
@@ -14,7 +15,11 @@ public class Notification {
 	@Id
 	private String email;
 	
+    @Column(nullable = false)
+	private String message;
+	
 	@Type(type = "org.jadira.usertype.dateandtime.joda.PersistentDateTime")
+	@Column(nullable = false)
 	private DateTime lastSent;
 
 	public String getEmail() {
@@ -23,6 +28,14 @@ public class Notification {
 
 	public void setEmail(String email) {
 		this.email = email;
+	}
+
+	public String getMessage() {
+		return message;
+	}
+
+	public void setMessage(String message) {
+		this.message = message;
 	}
 	
     public DateTime getLastSent() {
@@ -39,6 +52,7 @@ public class Notification {
 		int result = 1;
 		result = prime * result + ((email == null) ? 0 : email.hashCode());
 		result = prime * result + ((lastSent == null) ? 0 : lastSent.hashCode());
+		result = prime * result + ((message == null) ? 0 : message.hashCode());
 		return result;
 	}
 
@@ -61,7 +75,11 @@ public class Notification {
 				return false;
 		} else if (!lastSent.equals(other.lastSent))
 			return false;
+		if (message == null) {
+			if (other.message != null)
+				return false;
+		} else if (!message.equals(other.message))
+			return false;
 		return true;
 	}
-
 }

@@ -46,7 +46,7 @@ import com.beust.jcommander.Parameter;
 
 @SpringBootApplication
 @EnableJpaRepositories
-public class NotificationQuotaApplication {
+public class Application {
 
 	@Parameter(names = { "-t", "--target" }, description = "Cloud Foundry target URL", required = true)
 	private String target;
@@ -94,9 +94,9 @@ public class NotificationQuotaApplication {
 	private NotificationService notificationService;
 
 	public static void main(String[] args) {
-		ApplicationContext context = SpringApplication.run(NotificationQuotaApplication.class, args);
+		ApplicationContext context = SpringApplication.run(Application.class, args);
 		
-		NotificationQuotaApplication application = context.getBean(NotificationQuotaApplication.class);
+		Application application = context.getBean(Application.class);
 		new JCommander(application, args);
 		
 		application.validateArgs();
