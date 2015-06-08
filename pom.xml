@@ -41,10 +41,10 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
@@ -70,9 +70,9 @@
 			<version>1.2</version>
 		</dependency>
 		<dependency>
-		    <groupId>org.antlr</groupId>
-		    <artifactId>ST4</artifactId>
-		    <version>4.0.8</version>
+			<groupId>org.antlr</groupId>
+			<artifactId>ST4</artifactId>
+			<version>4.0.8</version>
 		</dependency>
 		<dependency>
 			<groupId>com.sendgrid</groupId>
@@ -84,33 +84,33 @@
 			<artifactId>usertype.core</artifactId>
 			<version>3.1.0.CR10</version>
 		</dependency>
-        <dependency>
-            <groupId>org.hsqldb</groupId>
-            <artifactId>hsqldb</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.malston</groupId>
-            <artifactId>cloudfoundry-client-lib</artifactId>
-            <version>13f4ca1</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.malston</groupId>
-            <artifactId>uaa-java-client</artifactId>
-            <version>ff09ea6</version>
-        </dependency>
+		<dependency>
+			<groupId>org.hsqldb</groupId>
+			<artifactId>hsqldb</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.github.malston</groupId>
+			<artifactId>cloudfoundry-client-lib</artifactId>
+			<version>13f4ca1</version>
+		</dependency>
+		<dependency>
+			<groupId>com.github.malston</groupId>
+			<artifactId>uaa-java-client</artifactId>
+			<version>ff09ea6</version>
+		</dependency>
 	</dependencies>
 
-    <repositories>
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
-        <repository>
-            <id>Spring</id>
-            <url>http://repo.spring.io/libs-release-local</url>
-        </repository>
-    </repositories>
+	<repositories>
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
+		</repository>
+		<repository>
+			<id>Spring</id>
+			<url>http://repo.spring.io/libs-release-local</url>
+		</repository>
+	</repositories>
 
 	<build>
 		<plugins>
