@@ -54,35 +54,6 @@
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-aspects</artifactId>
 		</dependency>
-        <!-- 
-		<dependency>
-			<groupId>org.cloudfoundry</groupId>
-			<artifactId>cloudfoundry-client-lib</artifactId>
-			<version>1.1.3.BUILD-SNAPSHOT</version>
-		</dependency>
-		-->
-        <dependency>
-            <groupId>com.esotericsoftware.yamlbeans</groupId>
-            <artifactId>yamlbeans</artifactId>
-            <version>1.06</version>
-        </dependency>
-        <!-- 
-		<dependency>
-			<groupId>org.cloudfoundry</groupId>
-			<artifactId>uaa-java-client</artifactId>
-			<version>1.0.1-SNAPSHOT</version>
-		</dependency>
-		 -->
-        <dependency>
-            <groupId>org.springframework.security.oauth</groupId>
-            <artifactId>spring-security-oauth2</artifactId>
-            <version>2.0.4.RELEASE</version>
-        </dependency>
-        <dependency>
-            <groupId>org.cloudfoundry.identity</groupId>
-            <artifactId>cloudfoundry-identity-scim</artifactId>
-            <version>2.1.0</version>
-        </dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
@@ -118,12 +89,26 @@
             <artifactId>hsqldb</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>com.github.malston</groupId>
+            <artifactId>cf-java-client</artifactId>
+            <version>e7ab1e5f64a4e4861460626ba9ba8115e373cc93</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.malston</groupId>
+            <artifactId>uaa-java-client</artifactId>
+            <version>56b49ff3d12d151c0955728ba41cb01328e8176a</version>
+        </dependency>
 	</dependencies>
 
     <repositories>
         <repository>
             <id>Spring</id>
             <url>http://repo.spring.io/libs-release-local</url>
+        </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
         </repository>
     </repositories>
 
