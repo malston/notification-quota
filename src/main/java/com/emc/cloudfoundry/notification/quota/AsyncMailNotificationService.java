@@ -10,8 +10,6 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.stringtemplate.v4.ST;
-import org.stringtemplate.v4.STGroupFile;
 
 import com.sendgrid.SendGrid;
 import com.sendgrid.SendGridException;
@@ -51,23 +49,18 @@ public class AsyncMailNotificationService implements NotificationService {
 	}
 	
 	@Override
-	public void sendNotification(String from, List<String> to, String messageBody) {
-		ST textTemplate = new ST(new STGroupFile("notification.stg"), messageBody);
-		textTemplate.add("from", from);
+	public void sendNotification(String from, List<String> to, String message) {
 		for (String user : to) {
 			Notification notification = notificationRepository.findByEmail(user);
-			boolean shouldResend = true;
+			boolean shouldNotify = true;
 			if (notification != null) {
-				shouldResend = notification.getLastSent().plusHours(numberOfHoursBeforeResend).isBefore(DateTime.now());
+				shouldNotify = notification.getLastSent().plusHours(numberOfHoursBeforeResend).isBefore(DateTime.now());
 			} else {
 				notification = new Notification();
 				notification.setEmail(user);
 			}
-			if (shouldResend) {
-				textTemplate.add("user", user);
-				textTemplate.add("body",  messageBody);
-				String message = textTemplate.render();
-				System.out.println("Sending notification: " + message + " to : " + notification.getEmail() + " last sent at " + notification.getLastSent() + " shouldResend: " + shouldResend);
+			if (shouldNotify) {
+				System.out.println("Sending notification: " + message + " to : " + notification.getEmail() + " last sent at " + notification.getLastSent() + " shouldResend: " + shouldNotify);
 				if (useSendGrid)
 					try {
 						sendGrid(from, user, message, notification);

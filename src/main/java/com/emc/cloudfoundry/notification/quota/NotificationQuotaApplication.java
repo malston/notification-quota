@@ -37,6 +37,9 @@ import org.springframework.security.oauth2.common.AuthenticationScheme;
 import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
 import org.springframework.security.oauth2.common.DefaultOAuth2RefreshToken;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
+import org.stringtemplate.v4.ST;
+import org.stringtemplate.v4.STGroup;
+import org.stringtemplate.v4.STRawGroupDir;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
@@ -105,9 +108,12 @@ public class NotificationQuotaApplication {
 		CloudFoundryOperations client = getCloudFoundryClient();
 		UaaUserOperations uaaUserClient = getUaaUserClient();
 		
-		displayCloudInfo(client);
-		
-		StringBuffer message = new StringBuffer();
+//		displayCloudInfo(client);
+
+		STGroup g = new STRawGroupDir("templates");
+		ST notificationTemplate = g.getInstanceOf("notification");
+		notificationTemplate.add("from", "The PCF Ops Team");
+
 		for (CloudOrganization organization : client.getOrganizations()) {
 			CloudOrganization org = client.getOrgByName(organization.getName(), true);
 			if (org.getQuota() != null) {
@@ -116,31 +122,39 @@ public class NotificationQuotaApplication {
 				int percentUsed = 100 * memoryUsed / memoryLimit;
 				out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
 						+ formatMBytes(memoryLimit) + ".");
-				message.append("Org ").append(org.getName()).append(" is using ").append(formatMBytes(memoryUsed)).append(" of ")
-						.append(formatMBytes(memoryLimit)).append(".");
+//				message.append("Org ").append(org.getName()).append(" is using ").append(formatMBytes(memoryUsed)).append(" of ")
+//						.append(formatMBytes(memoryLimit)).append(".");
+				int quotaMemoryLimit = memoryLimit;
 				if (percentUsed >= Integer.valueOf(environment.getProperty("threshold"))) {
-					out("That is " + percentUsed + "% of their quota.");
-					message.append("That is ").append(percentUsed).append("% of their quota.");
+//					out("That is " + percentUsed + "% of their quota.");
+//					message.append("That is ").append(percentUsed).append("% of their quota.");
+					notificationTemplate.add("orgName", org.getName());
+					notificationTemplate.add("memoryUsed", formatMBytes(memoryUsed));
+					notificationTemplate.add("quotaMemoryLimit", formatMBytes(memoryLimit));
+					notificationTemplate.add("percentUsed", percentUsed);
 					List<CloudUser> users = client.getOrgManagers(org.getMeta().getGuid());
 					List<String> emailTos = new ArrayList<String>();
 					if (users != null) {
 						for (CloudUser user : users) {
 							FilterRequest request = new FilterRequestBuilder().equals("id", user.getMeta().getGuid().toString()).build();
 							ScimUser scimUser = uaaUserClient.getUsers(request).getResources().iterator().next();
-							out("Sending email notification to Org Manager [" + scimUser.getGivenName() + " " + scimUser.getFamilyName() + "] of Org [" + org.getName() + "] with email ["+ scimUser.getPrimaryEmail() + "].");
+//							out("Sending email notification to Org Manager [" + scimUser.getGivenName() + " " + scimUser.getFamilyName() + "] of Org [" + org.getName() + "] with email ["+ scimUser.getPrimaryEmail() + "].");
+							notificationTemplate.add("givenName", scimUser.getGivenName());
 							if (scimUser.getPrimaryEmail() != null) {
 								emailTos.add(scimUser.getPrimaryEmail());
 							}
 						}
 					}
+					ST spaceMessageTemplate = createSpaceUsageMessage(client, org, quotaMemoryLimit);
+					notificationTemplate.add("spaceQuotaBody", spaceMessageTemplate.render());
 					if (!emailTos.isEmpty() ) {
-						notificationService.sendNotification("malston@pivotal.io", emailTos, message.toString());
+						notificationService.sendNotification("pcfops@emc.com", emailTos, notificationTemplate.render());
 					}
 				}
 			}
 		}
 	}
-	
+
 	private CloudFoundryOperations getCloudFoundryClient() {
 		CloudCredentials credentials = getCloudCredentials();
 		
@@ -247,38 +261,33 @@ public class NotificationQuotaApplication {
 		}
 		return false;
 	}
-
-	private void displayCloudInfo(CloudFoundryOperations client) {
+	
+	private ST createSpaceUsageMessage(CloudFoundryOperations client, CloudOrganization org, int quotaMemoryLimit) {
 		int appCount = 0;
 		int appInstanceCount = 0;
-		for (CloudOrganization organization : client.getOrganizations()) {
-			CloudOrganization org = client.getOrgByName(organization.getName(), true);
-			int quotaMemoryLimit = Long.valueOf(org.getQuota().getMemoryLimit()).intValue();
-			int memoryUsed = Long.valueOf(client.getMemoryUsageForOrg(org.getMeta().getGuid())).intValue();
-			if (org.getQuota() != null) {
-				out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
-						+ formatMBytes(quotaMemoryLimit) + ".");
-			}
-			int quotaUsed = 0;
-			for (CloudSpace space : client.getSpaces()) {
-				if (space.getOrganization().getName().equals(org.getName())) {
-					int consumed = 0;
-					for (CloudApplication app : client.getApplications()) {
-						if (app.getSpace().getName().equals(space.getName())) {
-							int instances = app.getInstances();
-							int memory = app.getMemory();
-							consumed += (instances * memory);
-							appCount++;
-							appInstanceCount = appInstanceCount + instances;
-						}
+		int quotaUsed = 0;
+		StringBuffer messageBody = new StringBuffer();
+		for (CloudSpace space : client.getSpaces()) {
+			if (space.getOrganization().getName().equals(org.getName())) {
+				int consumed = 0;
+				for (CloudApplication app : client.getApplications()) {
+					if (app.getSpace().getName().equals(space.getName())) {
+						int instances = app.getInstances();
+						int memory = app.getMemory();
+						consumed += (instances * memory);
+						appCount++;
+						appInstanceCount = appInstanceCount + instances;
 					}
-					quotaUsed = 100 * consumed / quotaMemoryLimit;
-					out("\tSpace " + space.getName() + " is using " + (consumed) + "M memory ("
-							+ quotaUsed + "%) of org quota");
 				}
+				quotaUsed = 100 * consumed / quotaMemoryLimit;
+				messageBody.append("* Space ").append(space.getName()).append(" is using ").append(consumed)
+						.append("M (").append(quotaUsed).append("%) of the org's memory quota.");
 			}
 		}
-		out("You are running " + appCount + " apps in all orgs, with a total of " + appInstanceCount + " instances");
+		messageBody.append(" There are ").append(appCount).append(" apps running inside this space with a total of ")
+				.append(appInstanceCount).append(" instances.");
+		ST spaceMessageTemplate = new ST(messageBody.toString());
+		return spaceMessageTemplate;
 	}
 
 	private URL getTargetURL(String target) {
