@@ -66,11 +66,23 @@
             <artifactId>yamlbeans</artifactId>
             <version>1.06</version>
         </dependency>
+        <!-- 
 		<dependency>
 			<groupId>org.cloudfoundry</groupId>
 			<artifactId>uaa-java-client</artifactId>
 			<version>1.0.1-SNAPSHOT</version>
 		</dependency>
+		 -->
+        <dependency>
+            <groupId>org.springframework.security.oauth</groupId>
+            <artifactId>spring-security-oauth2</artifactId>
+            <version>2.0.4.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>org.cloudfoundry.identity</groupId>
+            <artifactId>cloudfoundry-identity-scim</artifactId>
+            <version>2.1.0</version>
+        </dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-lang3</artifactId>
@@ -106,8 +118,14 @@
             <artifactId>hsqldb</artifactId>
             <scope>runtime</scope>
         </dependency>
-
 	</dependencies>
+
+    <repositories>
+        <repository>
+            <id>Spring</id>
+            <url>http://repo.spring.io/libs-release-local</url>
+        </repository>
+    </repositories>
 
 	<build>
 		<plugins>
