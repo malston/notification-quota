@@ -97,7 +97,7 @@
         <dependency>
             <groupId>com.github.malston</groupId>
             <artifactId>uaa-java-client</artifactId>
-            <version>ff09ea6e98c10086e53c5fbd5982597e664f88ca</version>
+            <version>ff09ea6</version>
         </dependency>
 	</dependencies>
 
