@@ -1,0 +1,18 @@
+---
+applications:
+- name: notification-quota
+  memory: 512M
+  instances: 1
+  path: target/notification-quota-0.0.1-SNAPSHOT.jar
+  timeout: 160
+  services:
+    - notification-quota-db
+  env:
+    PCF_TARGET: https://api.cf.isus.emc.com
+    PCF_UAA_TARGET: http://uaa.cf.isus.emc.com
+    PCF_SPACE: MarkSpace
+    PCF_ORG: DeveloperDemoOrg
+    PCF_USERNAME: malston@pivotal.io
+    PCF_PASSWORD: password1
+    SKIP_SSL_VALIDATION: true
+  buildpack: java_buildpack_offline

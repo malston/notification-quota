@@ -31,7 +31,9 @@ public class WebApplicationInitializer implements ApplicationContextInitializer<
 
     @Override
     public void initialize(AnnotationConfigEmbeddedWebApplicationContext applicationContext) {
+    	System.out.println("Initializing...");
         Cloud cloud = getCloud();
+    	System.out.println("Are we in cloud? " + cloud);
 
         ConfigurableEnvironment appEnvironment = applicationContext.getEnvironment();
 
@@ -51,12 +53,10 @@ public class WebApplicationInitializer implements ApplicationContextInitializer<
         }
         for (String[] profile : persistenceProfiles) {
             for (String persistenceProfile : profile) {
+				System.out.println("adding to active profiles: '" + persistenceProfile + "'");
                 appEnvironment.addActiveProfile(persistenceProfile);
             }
         }
-
-
-
         logger.info("Active profiles: " + StringUtils.arrayToCommaDelimitedString(appEnvironment.getActiveProfiles()));
     }
 
@@ -106,13 +106,6 @@ public class WebApplicationInitializer implements ApplicationContextInitializer<
                 serviceProfiles.add(profile);
             }
         }
-
-//        if (serviceProfiles.size() > 1) {
-//            throw new IllegalStateException("Only one active Spring profile may be set among the following: " +
-//                    validLocalProfiles.toString() + ". " +
-//                    "These profiles are active: [" +
-//                    StringUtils.collectionToCommaDelimitedString(serviceProfiles) + "]");
-//        }
 
         if (serviceProfiles.size() > 0) {
             logger.info("Profile found: '" + serviceProfiles.get(0) + "'");

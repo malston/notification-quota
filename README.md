@@ -5,7 +5,7 @@ This application uses a fork of the [cf-java-client](https://github.com/malston/
 
 ## Build and Deploy
 
-Example #1
+Run locally
 ```
 export CF_SYSTEM_DOMAIN=cf.company.com
 export CF_SPACE=development
@@ -16,3 +16,11 @@ export CF_PASSWORD=password
 mvn clean package; java -jar target/notification-quota-0.0.1-SNAPSHOT.jar -t https://api.$CF_SYSTEM_DOMAIN -s $CF_SPACE -u $CF_USER -p $CF_PASSWORD -ut http://uaa.$CF_SYSTEM_DOMAIN -tc
 ```
 
+Run on cloud
+```
+cf create-service p-mysql 100mb-dev notification-quota-db
+```
+```
+cf push
+cf logs notification-quota
+```

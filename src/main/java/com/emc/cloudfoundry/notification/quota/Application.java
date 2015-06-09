@@ -24,14 +24,14 @@ import org.cloudfoundry.identity.uaa.api.common.UaaConnection;
 import org.cloudfoundry.identity.uaa.api.common.model.expr.FilterRequest;
 import org.cloudfoundry.identity.uaa.api.common.model.expr.FilterRequestBuilder;
 import org.cloudfoundry.identity.uaa.api.user.UaaUserOperations;
+import org.cloudfoundry.identity.uaa.rest.SearchResults;
 import org.cloudfoundry.identity.uaa.scim.ScimUser;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.SpringApplication;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.Environment;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.oauth2.client.token.grant.password.ResourceOwnerPasswordResourceDetails;
 import org.springframework.security.oauth2.common.AuthenticationScheme;
@@ -42,50 +42,55 @@ import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.STGroup;
 import org.stringtemplate.v4.STRawGroupDir;
 
-import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 
 @SpringBootApplication
-@EnableJpaRepositories
 public class Application {
 
-	@Parameter(names = { "-t", "--target" }, description = "Cloud Foundry target URL", required = true)
+//	@Parameter(names = { "-t", "--target" }, description = "Cloud Foundry target URL", required = true)
+	@Value("#{environment.PCF_TARGET}")
 	private String target;
 
-	@Parameter(names = { "-ut", "--uaa" }, description = "UAA target URL", required = true)
+//	@Parameter(names = { "-ut", "--uaa" }, description = "UAA target URL", required = true)
+	@Value("#{environment.PCF_UAA_TARGET}")
 	private String uaaTarget;
 
-	@Parameter(names = { "-s", "--space" }, description = "Cloud Foundry space to target", required = true)
+//	@Parameter(names = { "-s", "--space" }, description = "Cloud Foundry space to target", required = true)
+	@Value("#{environment.PCF_SPACE}")
 	private String spaceName;
 
-	@Parameter(names = { "-o", "--organization" }, description = "Cloud Foundry organization to target")
+//	@Parameter(names = { "-o", "--organization" }, description = "Cloud Foundry organization to target")
+	@Value("#{environment.PCF_ORG}")
 	private String orgName;
 
-	@Parameter(names = { "-u", "--username" }, description = "Username for login")
+//	@Parameter(names = { "-u", "--username" }, description = "Username for login")
+	@Value("#{environment.PCF_USERNAME}")
 	private String username;
 
-	@Parameter(names = { "-p", "--password" }, description = "Password for login")
+//	@Parameter(names = { "-p", "--password" }, description = "Password for login")
+	@Value("#{environment.PCF_PASSWORD}")
 	private String password;
 
-	@Parameter(names = { "-a", "--accessToken" }, description = "OAuth access token")
+//	@Parameter(names = { "-a", "--accessToken" }, description = "OAuth access token")
 	private String accessToken;
 
-	@Parameter(names = { "-r", "--refreshToken" }, description = "OAuth refresh token")
+//	@Parameter(names = { "-r", "--refreshToken" }, description = "OAuth refresh token")
 	private String refreshToken;
 
-	@Parameter(names = { "-ci", "--clientID" }, description = "OAuth client ID")
+//	@Parameter(names = { "-ci", "--clientID" }, description = "OAuth client ID")
 	private String clientID;
 
-	@Parameter(names = { "-cs", "--clientSecret" }, description = "OAuth client secret")
+//	@Parameter(names = { "-cs", "--clientSecret" }, description = "OAuth client secret")
 	private String clientSecret;
 
-	@Parameter(names = { "-tc", "--trustSelfSignedCerts" }, description = "Trust self-signed SSL certificates")
+//	@Parameter(names = { "-tc", "--trustSelfSignedCerts" }, description = "Trust self-signed SSL certificates")
+	@Value("#{environment.SKIP_SSL_VALIDATION}")
 	private boolean trustSelfSignedCerts;
 
-	@Parameter(names = { "-v", "--verbose" }, description = "Enable logging of requests and responses")
+//	@Parameter(names = { "-v", "--verbose" }, description = "Enable logging of requests and responses")
 	private boolean verbose;
 
-	@Parameter(names = { "-d", "--debug" }, description = "Enable debug logging of requests and responses")
+//	@Parameter(names = { "-d", "--debug" }, description = "Enable debug logging of requests and responses")
 	private boolean debug;
 
 	@Autowired
@@ -99,7 +104,7 @@ public class Application {
 				.initializers(new WebApplicationInitializer()).application().run(args);
 
 		Application application = context.getBean(Application.class);
-		new JCommander(application, args);
+//		new JCommander(application).parseWithoutValidation(args);
 
 		application.validateArgs();
 		application.setupDebugLogging();
@@ -110,23 +115,20 @@ public class Application {
 		CloudFoundryOperations client = getCloudFoundryClient();
 		UaaUserOperations uaaUserClient = getUaaUserClient();
 
-		// displayCloudInfo(client);
-
-		STGroup g = new STRawGroupDir("templates");
-		ST notificationTemplate = g.getInstanceOf("notification");
-		notificationTemplate.add("from", "The PCF Ops Team");
-
 		for (CloudOrganization organization : client.getOrganizations()) {
 			CloudOrganization org = client.getOrgByName(organization.getName(), true);
+			STGroup g = new STRawGroupDir("templates");
+			ST notificationTemplate = g.getInstanceOf("notification");
+			notificationTemplate.add("from", "The PCF Ops Team");
 			if (org.getQuota() != null) {
 				int memoryLimit = Long.valueOf(org.getQuota().getMemoryLimit()).intValue();
 				int memoryUsed = Long.valueOf(client.getMemoryUsageForOrg(org.getMeta().getGuid())).intValue();
 				int percentUsed = 100 * memoryUsed / memoryLimit;
-				// out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
-				// + formatMBytes(memoryLimit) + ".");
+				 out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
+				 + formatMBytes(memoryLimit) + ".");
+				 out("That is " + percentUsed + "% of their quota.");
 				int quotaMemoryLimit = memoryLimit;
 				if (percentUsed >= Integer.valueOf(environment.getProperty("threshold"))) {
-					// out("That is " + percentUsed + "% of their quota.");
 					notificationTemplate.add("orgName", org.getName());
 					notificationTemplate.add("memoryUsed", formatMBytes(memoryUsed));
 					notificationTemplate.add("quotaMemoryLimit", formatMBytes(memoryLimit));
@@ -135,16 +137,30 @@ public class Application {
 					List<String> emailTos = new ArrayList<String>();
 					if (users != null) {
 						for (CloudUser user : users) {
+							out("Lookup user: '" + user.getMeta().getGuid().toString() + "' from UAA.");
 							FilterRequest request = new FilterRequestBuilder().equals("id",
 									user.getMeta().getGuid().toString()).build();
-							ScimUser scimUser = uaaUserClient.getUsers(request).getResources().iterator().next();
+							SearchResults<ScimUser> results = null;
+							try {
+								results = uaaUserClient.getUsers(request);
+							} catch (Exception e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+							if (results != null) {
+								ScimUser scimUser = results.getResources().iterator().next();
+								notificationTemplate.add("givenName", scimUser.getGivenName());
+								if (scimUser.getPrimaryEmail() != null) {
+									emailTos.add(scimUser.getPrimaryEmail());
+								}
+							} else {
+								notificationTemplate.add("givenName", "Mark");
+								emailTos.add("malston@pivotal.io");
+							}
+							out("Keep going...");
 							// out("Sending email notification to Org Manager [" + scimUser.getGivenName() + " " +
 							// scimUser.getFamilyName() + "] of Org [" + org.getName() + "] with email ["+
 							// scimUser.getPrimaryEmail() + "].");
-							notificationTemplate.add("givenName", scimUser.getGivenName());
-							if (scimUser.getPrimaryEmail() != null) {
-								emailTos.add(scimUser.getPrimaryEmail());
-							}
 						}
 					}
 					ST spaceMessageTemplate = createSpaceUsageMessage(client, org, quotaMemoryLimit);
@@ -268,7 +284,7 @@ public class Application {
 		int appCount = 0;
 		int appInstanceCount = 0;
 		int quotaUsed = 0;
-		StringBuffer messageBody = new StringBuffer();
+		StringBuffer spaceBody = new StringBuffer();
 		for (CloudSpace space : client.getSpaces()) {
 			if (space.getOrganization().getName().equals(org.getName())) {
 				int consumed = 0;
@@ -282,12 +298,14 @@ public class Application {
 					}
 				}
 				quotaUsed = 100 * consumed / quotaMemoryLimit;
-				messageBody.append("* Space ").append(space.getName()).append(" is using ").append(consumed)
-						.append("M (").append(quotaUsed).append("%) of the org's memory quota.");
+				spaceBody.append("* Space ").append(space.getName()).append(" is using ").append(consumed)
+						.append("M (").append(quotaUsed).append("%) of the org's memory quota.\n");
 			}
 		}
-		messageBody.append(" There are ").append(appCount).append(" apps running inside this space with a total of ")
-				.append(appInstanceCount).append(" instances.");
+		StringBuffer messageBody = new StringBuffer();
+		messageBody.append("\nThere are ").append(appCount).append(" apps running inside this org with a total of ")
+				.append(appInstanceCount).append(" instances.\n\n");
+		messageBody.append(spaceBody);
 		ST spaceMessageTemplate = new ST(messageBody.toString());
 		return spaceMessageTemplate;
 	}
