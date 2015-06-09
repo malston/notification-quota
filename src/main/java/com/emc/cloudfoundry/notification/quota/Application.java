@@ -47,50 +47,50 @@ import com.beust.jcommander.Parameter;
 @SpringBootApplication
 public class Application {
 
-//	@Parameter(names = { "-t", "--target" }, description = "Cloud Foundry target URL", required = true)
+	// @Parameter(names = { "-t", "--target" }, description = "Cloud Foundry target URL", required = true)
 	@Value("#{environment.PCF_TARGET}")
 	private String target;
 
-//	@Parameter(names = { "-ut", "--uaa" }, description = "UAA target URL", required = true)
+	// @Parameter(names = { "-ut", "--uaa" }, description = "UAA target URL", required = true)
 	@Value("#{environment.PCF_UAA_TARGET}")
 	private String uaaTarget;
 
-//	@Parameter(names = { "-s", "--space" }, description = "Cloud Foundry space to target", required = true)
+	// @Parameter(names = { "-s", "--space" }, description = "Cloud Foundry space to target", required = true)
 	@Value("#{environment.PCF_SPACE}")
 	private String spaceName;
 
-//	@Parameter(names = { "-o", "--organization" }, description = "Cloud Foundry organization to target")
+	// @Parameter(names = { "-o", "--organization" }, description = "Cloud Foundry organization to target")
 	@Value("#{environment.PCF_ORG}")
 	private String orgName;
 
-//	@Parameter(names = { "-u", "--username" }, description = "Username for login")
+	// @Parameter(names = { "-u", "--username" }, description = "Username for login")
 	@Value("#{environment.PCF_USERNAME}")
 	private String username;
 
-//	@Parameter(names = { "-p", "--password" }, description = "Password for login")
+	// @Parameter(names = { "-p", "--password" }, description = "Password for login")
 	@Value("#{environment.PCF_PASSWORD}")
 	private String password;
 
-//	@Parameter(names = { "-a", "--accessToken" }, description = "OAuth access token")
+	// @Parameter(names = { "-a", "--accessToken" }, description = "OAuth access token")
 	private String accessToken;
 
-//	@Parameter(names = { "-r", "--refreshToken" }, description = "OAuth refresh token")
+	// @Parameter(names = { "-r", "--refreshToken" }, description = "OAuth refresh token")
 	private String refreshToken;
 
-//	@Parameter(names = { "-ci", "--clientID" }, description = "OAuth client ID")
+	// @Parameter(names = { "-ci", "--clientID" }, description = "OAuth client ID")
 	private String clientID;
 
-//	@Parameter(names = { "-cs", "--clientSecret" }, description = "OAuth client secret")
+	// @Parameter(names = { "-cs", "--clientSecret" }, description = "OAuth client secret")
 	private String clientSecret;
 
-//	@Parameter(names = { "-tc", "--trustSelfSignedCerts" }, description = "Trust self-signed SSL certificates")
+	// @Parameter(names = { "-tc", "--trustSelfSignedCerts" }, description = "Trust self-signed SSL certificates")
 	@Value("#{environment.SKIP_SSL_VALIDATION}")
 	private boolean trustSelfSignedCerts;
 
-//	@Parameter(names = { "-v", "--verbose" }, description = "Enable logging of requests and responses")
+	// @Parameter(names = { "-v", "--verbose" }, description = "Enable logging of requests and responses")
 	private boolean verbose;
 
-//	@Parameter(names = { "-d", "--debug" }, description = "Enable debug logging of requests and responses")
+	// @Parameter(names = { "-d", "--debug" }, description = "Enable debug logging of requests and responses")
 	private boolean debug;
 
 	@Autowired
@@ -104,7 +104,7 @@ public class Application {
 				.initializers(new WebApplicationInitializer()).application().run(args);
 
 		Application application = context.getBean(Application.class);
-//		new JCommander(application).parseWithoutValidation(args);
+		// new JCommander(application).parseWithoutValidation(args);
 
 		application.validateArgs();
 		application.setupDebugLogging();
@@ -124,9 +124,9 @@ public class Application {
 				int memoryLimit = Long.valueOf(org.getQuota().getMemoryLimit()).intValue();
 				int memoryUsed = Long.valueOf(client.getMemoryUsageForOrg(org.getMeta().getGuid())).intValue();
 				int percentUsed = 100 * memoryUsed / memoryLimit;
-				 out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
-				 + formatMBytes(memoryLimit) + ".");
-				 out("That is " + percentUsed + "% of their quota.");
+				out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
+						+ formatMBytes(memoryLimit) + ".");
+				out("That is " + percentUsed + "% of their quota.");
 				int quotaMemoryLimit = memoryLimit;
 				if (percentUsed >= Integer.valueOf(environment.getProperty("threshold"))) {
 					notificationTemplate.add("orgName", org.getName());
@@ -289,6 +289,8 @@ public class Application {
 			if (space.getOrganization().getName().equals(org.getName())) {
 				int consumed = 0;
 				for (CloudApplication app : client.getApplications()) {
+//					if (app.getSpace().getName().equals(space.getName())
+//							&& app.getSpace().getOrganization().getName().equals(org.getName())) {
 					if (app.getSpace().getName().equals(space.getName())) {
 						int instances = app.getInstances();
 						int memory = app.getMemory();
