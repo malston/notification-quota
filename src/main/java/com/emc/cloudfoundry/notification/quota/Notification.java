@@ -1,8 +1,8 @@
 package com.emc.cloudfoundry.notification.quota;
 
 import javax.persistence.Column;
+import javax.persistence.EmbeddedId;
 import javax.persistence.Entity;
-import javax.persistence.Id;
 import javax.persistence.Lob;
 import javax.persistence.Table;
 
@@ -10,19 +10,31 @@ import org.hibernate.annotations.Type;
 import org.joda.time.DateTime;
 
 @Entity
-@Table(name="notifications")
+@Table(name = "notifications")
 public class Notification {
 
-	@Id
+	@EmbeddedId
+	private NotificationPk notificationId;
+
+	@Column(nullable = false)
 	private String email;
-	
+
 	@Lob
 	@Column(nullable = false)
 	private byte[] message;
-	
+
 	@Type(type = "org.jadira.usertype.dateandtime.joda.PersistentDateTime")
 	@Column(nullable = false)
 	private DateTime lastSent;
+
+	public Notification() {
+	}
+
+	public Notification(NotificationPk notificationId, String email) {
+		super();
+		this.notificationId = notificationId;
+		this.email = email;
+	}
 
 	public String getEmail() {
 		return email;
@@ -39,13 +51,17 @@ public class Notification {
 	public void setMessage(byte[] message) {
 		this.message = message;
 	}
-	
-    public DateTime getLastSent() {
+
+	public DateTime getLastSent() {
 		return lastSent;
 	}
 
 	public void setLastSent(DateTime lastSent) {
 		this.lastSent = lastSent;
+	}
+
+	public NotificationPk getNotificationId() {
+		return notificationId;
 	}
 
 	@Override

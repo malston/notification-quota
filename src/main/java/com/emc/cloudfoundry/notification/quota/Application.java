@@ -7,6 +7,7 @@ import java.net.URL;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import org.cloudfoundry.client.lib.CloudCredentials;
 import org.cloudfoundry.client.lib.CloudFoundryClient;
@@ -42,55 +43,46 @@ import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.STGroup;
 import org.stringtemplate.v4.STRawGroupDir;
 
-import com.beust.jcommander.Parameter;
-
 @SpringBootApplication
 public class Application {
 
-	// @Parameter(names = { "-t", "--target" }, description = "Cloud Foundry target URL", required = true)
 	@Value("#{environment.PCF_TARGET}")
 	private String target;
 
-	// @Parameter(names = { "-ut", "--uaa" }, description = "UAA target URL", required = true)
 	@Value("#{environment.PCF_UAA_TARGET}")
 	private String uaaTarget;
 
-	// @Parameter(names = { "-s", "--space" }, description = "Cloud Foundry space to target", required = true)
 	@Value("#{environment.PCF_SPACE}")
 	private String spaceName;
 
-	// @Parameter(names = { "-o", "--organization" }, description = "Cloud Foundry organization to target")
 	@Value("#{environment.PCF_ORG}")
 	private String orgName;
 
-	// @Parameter(names = { "-u", "--username" }, description = "Username for login")
 	@Value("#{environment.PCF_USERNAME}")
 	private String username;
 
-	// @Parameter(names = { "-p", "--password" }, description = "Password for login")
 	@Value("#{environment.PCF_PASSWORD}")
 	private String password;
 
-	// @Parameter(names = { "-a", "--accessToken" }, description = "OAuth access token")
+	@Value("#{environment.PCF_UAA_ACCESS_TOKEN}")
 	private String accessToken;
 
-	// @Parameter(names = { "-r", "--refreshToken" }, description = "OAuth refresh token")
+	@Value("#{environment.PCF_UAA_REFRESH_TOKEN}")
 	private String refreshToken;
 
-	// @Parameter(names = { "-ci", "--clientID" }, description = "OAuth client ID")
+	@Value("#{environment.PCF_UAA_CLIENT_ID}")
 	private String clientID;
 
-	// @Parameter(names = { "-cs", "--clientSecret" }, description = "OAuth client secret")
+	@Value("#{environment.PCF_UAA_CLIENT_SECRET}")
 	private String clientSecret;
 
-	// @Parameter(names = { "-tc", "--trustSelfSignedCerts" }, description = "Trust self-signed SSL certificates")
 	@Value("#{environment.SKIP_SSL_VALIDATION}")
 	private boolean trustSelfSignedCerts;
 
-	// @Parameter(names = { "-v", "--verbose" }, description = "Enable logging of requests and responses")
+	@Value("${environment.VERBOSE:false}")
 	private boolean verbose;
 
-	// @Parameter(names = { "-d", "--debug" }, description = "Enable debug logging of requests and responses")
+	@Value("${environment.DEBUG:false}")
 	private boolean debug;
 
 	@Autowired
@@ -104,7 +96,6 @@ public class Application {
 				.initializers(new WebApplicationInitializer()).application().run(args);
 
 		Application application = context.getBean(Application.class);
-		// new JCommander(application).parseWithoutValidation(args);
 
 		application.validateArgs();
 		application.setupDebugLogging();
@@ -113,16 +104,17 @@ public class Application {
 	@Scheduled(initialDelay = 2000, fixedRateString = "${pollingFrequency}")
 	public void checkQuota() {
 		CloudFoundryOperations client = getCloudFoundryClient();
-		UaaUserOperations uaaUserClient = getUaaUserClient();
 
 		for (CloudOrganization organization : client.getOrganizations()) {
+			// Need to refetch an org to get all its values
 			CloudOrganization org = client.getOrgByName(organization.getName(), true);
-			STGroup g = new STRawGroupDir("templates");
-			ST notificationTemplate = g.getInstanceOf("notification");
-			notificationTemplate.add("from", "The PCF Ops Team");
 			if (org.getQuota() != null) {
+				STGroup g = new STRawGroupDir("templates");
+				ST notificationTemplate = g.getInstanceOf("notification");
+				notificationTemplate.add("from", "The PCF Ops Team");
+				UUID orgGuid = org.getMeta().getGuid();
 				int memoryLimit = Long.valueOf(org.getQuota().getMemoryLimit()).intValue();
-				int memoryUsed = Long.valueOf(client.getMemoryUsageForOrg(org.getMeta().getGuid())).intValue();
+				int memoryUsed = Long.valueOf(client.getMemoryUsageForOrg(orgGuid).toString()).intValue();
 				int percentUsed = 100 * memoryUsed / memoryLimit;
 				out("Org " + org.getName() + " is using " + formatMBytes(memoryUsed) + " of "
 						+ formatMBytes(memoryLimit) + ".");
@@ -133,44 +125,51 @@ public class Application {
 					notificationTemplate.add("memoryUsed", formatMBytes(memoryUsed));
 					notificationTemplate.add("quotaMemoryLimit", formatMBytes(memoryLimit));
 					notificationTemplate.add("percentUsed", percentUsed);
-					List<CloudUser> users = client.getOrgManagers(org.getMeta().getGuid());
-					List<String> emailTos = new ArrayList<String>();
-					if (users != null) {
-						for (CloudUser user : users) {
-							out("Lookup user: '" + user.getMeta().getGuid().toString() + "' from UAA.");
-							FilterRequest request = new FilterRequestBuilder().equals("id",
-									user.getMeta().getGuid().toString()).build();
-							SearchResults<ScimUser> results = null;
-							try {
-								results = uaaUserClient.getUsers(request);
-							} catch (Exception e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
-							if (results != null) {
-								ScimUser scimUser = results.getResources().iterator().next();
-								notificationTemplate.add("givenName", scimUser.getGivenName());
-								if (scimUser.getPrimaryEmail() != null) {
-									emailTos.add(scimUser.getPrimaryEmail());
-								}
-							} else {
-								notificationTemplate.add("givenName", "Mark");
-								emailTos.add("malston@pivotal.io");
-							}
-							out("Keep going...");
-							// out("Sending email notification to Org Manager [" + scimUser.getGivenName() + " " +
-							// scimUser.getFamilyName() + "] of Org [" + org.getName() + "] with email ["+
-							// scimUser.getPrimaryEmail() + "].");
-						}
-					}
+					List<ScimUser> owners = this.findOrgOwners(org, notificationTemplate);
 					ST spaceMessageTemplate = createSpaceUsageMessage(client, org, quotaMemoryLimit);
 					notificationTemplate.add("spaceQuotaBody", spaceMessageTemplate.render());
-					if (!emailTos.isEmpty()) {
-						notificationService.sendNotification("pcfops@emc.com", emailTos, notificationTemplate.render());
+					for (ScimUser owner : owners) {
+						ArrayList<String> ownerEmails = new ArrayList<String>();
+						ownerEmails.add(owner.getPrimaryEmail());
+						notificationService.sendNotification(orgGuid.toString(), owner.getId(), "pcfops@emc.com", ownerEmails, notificationTemplate.render());
 					}
 				}
 			}
 		}
+	}
+
+	private List<ScimUser> findOrgOwners(CloudOrganization org, ST notificationTemplate) {
+		CloudFoundryOperations client = getCloudFoundryClient();
+		UaaUserOperations uaaUserClient = getUaaUserClient();
+
+		List<CloudUser> users = client.getOrgManagers(org.getMeta().getGuid());
+		List<ScimUser> orgManagers = new ArrayList<ScimUser>();
+		if (users != null) {
+			for (CloudUser user : users) {
+				out("Lookup user: '" + user.getMeta().getGuid().toString() + "' from UAA.");
+				FilterRequest request = new FilterRequestBuilder().equals("id",
+						user.getMeta().getGuid().toString()).build();
+				SearchResults<ScimUser> results = null;
+				try {
+					results = uaaUserClient.getUsers(request);
+				} catch (Exception e) {
+					throw new NotificationException(e.getMessage(), e);
+				}
+				if (results != null) {
+					ScimUser scimUser = results.getResources().iterator().next();
+					notificationTemplate.add("givenName", scimUser.getGivenName());
+					if (scimUser.getPrimaryEmail() != null) {
+						orgManagers.add(scimUser);
+					}
+				} else {
+					throw new NotificationException("Could not find user with guid: '" + user.getMeta().getGuid().toString() + "'");
+				}
+				// out("Sending email notification to Org Manager [" + scimUser.getGivenName() + " " +
+				// scimUser.getFamilyName() + "] of Org [" + org.getName() + "] with email ["+
+				// scimUser.getPrimaryEmail() + "].");
+			}
+		}
+		return orgManagers;
 	}
 
 	private CloudFoundryOperations getCloudFoundryClient() {

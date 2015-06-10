@@ -49,26 +49,26 @@ public class AsyncMailNotificationService implements NotificationService {
 	}
 	
 	@Override
-	public void sendNotification(String from, List<String> to, String message) {
-		for (String user : to) {
-			Notification notification = notificationRepository.findByEmail(user);
+	public void sendNotification(String orgGuid, String userGuid, String from, List<String> to, String message) {
+		for (String email : to) {
+			NotificationPk notificationId = new NotificationPk(orgGuid, userGuid);
+			Notification notification = notificationRepository.findOne(notificationId);
 			boolean shouldNotify = true;
 			if (notification != null) {
 				shouldNotify = notification.getLastSent().plusHours(numberOfHoursBeforeResend).isBefore(DateTime.now());
 			} else {
-				notification = new Notification();
-				notification.setEmail(user);
+				notification = new Notification(notificationId, email);
 			}
 			if (shouldNotify) {
 				System.out.println("Sending notification: " + message + " to : " + notification.getEmail() + " last sent at " + notification.getLastSent() + " shouldResend: " + shouldNotify);
 				if (useSendGrid)
 					try {
-						sendGrid(from, user, message, notification);
+						sendGrid(from, email, message, notification);
 					} catch (SendGridException e) {
 						throw new NotificationException(e.getMessage(), e.getCause());
 					}
 				else
-					send(from, user, message, notification);
+					send(from, email, message, notification);
 			}
 		}
 	}
