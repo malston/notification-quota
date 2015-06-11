@@ -8,11 +8,10 @@ applications:
   services:
     - notification-quota-db
   env:
-    PCF_TARGET: https://api.cf.isus.emc.com
-    PCF_UAA_TARGET: http://uaa.cf.isus.emc.com
-    PCF_SPACE: MarkSpace
-    PCF_ORG: DeveloperDemoOrg
+    PCF_TARGET: https://api.example.com
+    PCF_UAA_TARGET: http://uaa.example.com
+    PCF_SPACE: ExampleSpace
+    PCF_ORG: ExampleOrg
     PCF_USERNAME: malston@pivotal.io
-    PCF_PASSWORD: password1
+    PCF_PASSWORD: password
     SKIP_SSL_VALIDATION: true
-  buildpack: java_buildpack_offline
