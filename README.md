@@ -19,7 +19,7 @@ export PCF_PASSWORD=<password>
 export SKIP_SSL_VALIDATION=true
 ```
 ```
-mvn clean package; java -jar target/notification-quota-0.0.1-SNAPSHOT.jar
+mvn spring-boot:run
 ```
 
 Run on cloud
